@@ -1,1 +1,29 @@
-/Debug/
+*/Debug/
+*/build/debug/
+*/Release/
+*/build/release/
+*.obj
+*.o
+*.so
+.DS_Store
+
+# CMake / build artifacts
+/build/
+/**/build/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/compile_commands.json
+**/Makefile
+**/build.ninja
+*.elf
+*.bin
+*.map
+*.hex
+*.lst
+
+# VSCode and user files
+.vscode/
+.vscode/**
+.idea/
+.cache/

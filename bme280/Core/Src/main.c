@@ -18,6 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <string.h>
+/* USER CODE BEGIN Includes */
+#include "bme280.h"
+/* USER CODE END Includes */
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -31,6 +35,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BME280_ADDR (0x76 << 1) // HAL expects 8-bit address (7-bit shifted left)
+
+#define BME280_REG_PRESS_MSB    0xF7
+#define BME280_REG_CTRL_HUM     0xF2
+#define BME280_REG_CTRL_MEAS    0xF4
+#define BME280_REG_CONFIG       0xF5
+#define BME280_REG_RESET        0xE0
+#define BME280_REG_CHIPID       0xD0
+
+#define BME280_CHIPID           0x58
+#define BME280_RESET_CMD        0xB9
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -94,41 +109,63 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
 
   /* Initialize leds */
   BSP_LED_Init(LED_BLUE);
   BSP_LED_Init(LED_GREEN);
   BSP_LED_Init(LED_RED);
 
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_SW1, BUTTON_MODE_EXTI);
-  BSP_PB_Init(BUTTON_SW2, BUTTON_MODE_EXTI);
-  BSP_PB_Init(BUTTON_SW3, BUTTON_MODE_EXTI);
-
-  /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
+  /* USER CODE BEGIN 2 */
+  /* Initialize COM1 port (115200) earlier so printf works */
   BspCOMInit.BaudRate   = 115200;
   BspCOMInit.WordLength = COM_WORDLENGTH_8B;
   BspCOMInit.StopBits   = COM_STOPBITS_1;
   BspCOMInit.Parity     = COM_PARITY_NONE;
   BspCOMInit.HwFlowCtl  = COM_HWCONTROL_NONE;
   if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
-  {
     Error_Handler();
+
+  BSP_LED_Off(LED_BLUE);
+  BSP_LED_Off(LED_GREEN);
+  BSP_LED_Off(LED_RED);
+
+  /* Initialize BME280 */
+  uint16_t detected_addr = 0;
+  if (HAL_I2C_IsDeviceReady(&hi2c1, BME280_ADDR, 3, 500) == HAL_OK)
+  {
+    detected_addr = BME280_ADDR;
+    bme280_init(&hi2c1, detected_addr);
   }
+
+  /* USER CODE END 2 */
+
+  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
+  BSP_PB_Init(BUTTON_SW1, BUTTON_MODE_EXTI);
+  BSP_PB_Init(BUTTON_SW2, BUTTON_MODE_EXTI);
+  BSP_PB_Init(BUTTON_SW3, BUTTON_MODE_EXTI);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  float temperature;
+  uint32_t pressure;
+  float humidity;
+
   while (1)
   {
+    if (detected_addr != 0 && bme280_read_compensated(&hi2c1, detected_addr, &temperature, &pressure, &humidity) == HAL_OK)
+    {
+      printf("T=%.2f C  P=%lu Pa  H=%.1f %%\r\n",
+             temperature,
+             pressure,
+             humidity);
+    }
 
+    HAL_Delay(1000);
+  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+    /* USER CODE END 3 */
 }
 
 /**
