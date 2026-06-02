@@ -21,6 +21,7 @@
 #include "GUI_Paint.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -108,6 +109,16 @@ int main(void)
   mpu6050_ready = (MPU6050_Init(&hi2c1) == HAL_OK);
   veml7700_ready = (VEML7700_Init(&hi2c1) == HAL_OK);
 
+  float ref_ax = 0, ref_ay = 0, ref_az = 0;
+  if (mpu6050_ready)
+  {
+    HAL_Delay(500);
+    MPU6050_ReadData(&hi2c1, &mpu6050_data);
+    ref_ax = (float)mpu6050_data.ax / 16384.0f;
+    ref_ay = (float)mpu6050_data.ay / 16384.0f;
+    ref_az = (float)mpu6050_data.az / 16384.0f;
+  }
+
   uint32_t last_update = 0;
 
   while (1)
@@ -155,8 +166,19 @@ int main(void)
 
       if (mpu6050_ready)
       {
-        snprintf(line3, sizeof(line3), "ACC %d %d %d",
-                 mpu6050_data.ax, mpu6050_data.ay, mpu6050_data.az);
+        float ax_g = (float)mpu6050_data.ax / 16384.0f;
+        float ay_g = (float)mpu6050_data.ay / 16384.0f;
+        float az_g = (float)mpu6050_data.az / 16384.0f;
+
+        float dot = ax_g*ref_ax + ay_g*ref_ay + az_g*ref_az;
+        float ma = sqrtf(ax_g*ax_g + ay_g*ay_g + az_g*az_g);
+        float mr = sqrtf(ref_ax*ref_ax + ref_ay*ref_ay + ref_az*ref_az);
+        if (ma < 0.001f) ma = 1.0f;
+        if (mr < 0.001f) mr = 1.0f;
+
+        float tilt = acosf(dot / (ma * mr)) * 180.0f / M_PI;
+
+        snprintf(line3, sizeof(line3), "Tilt: %0.1f deg", (double)tilt);
       }
       else
       {
