@@ -40,6 +40,12 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+typedef struct {
+  float temperature;
+  uint32_t pressure;
+  float humidity;
+} BME280_Data_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -66,6 +72,14 @@ void Error_Handler(void);
 #define RCC_OSC32_IN_GPIO_Port GPIOC
 #define RCC_OSC32_OUT_Pin GPIO_PIN_15
 #define RCC_OSC32_OUT_GPIO_Port GPIOC
+#define SPI1_RST_Pin GPIO_PIN_1
+#define SPI1_RST_GPIO_Port GPIOA
+#define SPI1_DC_Pin GPIO_PIN_2
+#define SPI1_DC_GPIO_Port GPIOA
+#define SPI1_BUSY_Pin GPIO_PIN_3
+#define SPI1_BUSY_GPIO_Port GPIOA
+#define SPI1_CS_Pin GPIO_PIN_4
+#define SPI1_CS_GPIO_Port GPIOA
 #define USB_DM_Pin GPIO_PIN_11
 #define USB_DM_GPIO_Port GPIOA
 #define USB_DP_Pin GPIO_PIN_12

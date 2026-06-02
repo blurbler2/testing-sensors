@@ -27,3 +27,5 @@
 .vscode/**
 .idea/
 .cache/
+
+todos.md
