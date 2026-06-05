@@ -19,6 +19,8 @@
 #include "DEV_Config.h"
 #include "EPD_2in9_V2.h"
 #include "GUI_Paint.h"
+#include "data_logger.h"
+#include "app_fatfs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -42,6 +44,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+COM_InitTypeDef BspCOMInit;
 I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
@@ -103,104 +106,134 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+
+  HAL_GPIO_WritePin(SPI1_EPD_CS_GPIO_Port, SPI1_EPD_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SPI1_SD_CS_GPIO_Port, SPI1_SD_CS_Pin, GPIO_PIN_SET);
+
   BSP_LED_Init(LED_BLUE);
+  BSP_LED_Init(LED_GREEN);
+  BSP_LED_Init(LED_RED);
 
-  bme280_ready = (bme280_init(&hi2c1, BME280_ADDR) == HAL_OK);
-  mpu6050_ready = (MPU6050_Init(&hi2c1) == HAL_OK);
-  veml7700_ready = (VEML7700_Init(&hi2c1) == HAL_OK);
-
-  float ref_ax = 0, ref_ay = 0, ref_az = 0;
-  if (mpu6050_ready)
+  BspCOMInit.BaudRate   = 115200;
+  BspCOMInit.WordLength = COM_WORDLENGTH_8B;
+  BspCOMInit.StopBits   = COM_STOPBITS_1;
+  BspCOMInit.Parity     = COM_PARITY_NONE;
+  BspCOMInit.HwFlowCtl  = COM_HWCONTROL_NONE;
+  if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
   {
-    HAL_Delay(500);
-    MPU6050_ReadData(&hi2c1, &mpu6050_data);
-    ref_ax = (float)mpu6050_data.ax / 16384.0f;
-    ref_ay = (float)mpu6050_data.ay / 16384.0f;
-    ref_az = (float)mpu6050_data.az / 16384.0f;
+    Error_Handler();
   }
 
-  uint32_t last_update = 0;
+  printf("\r\n=== Tree Sentinel ===\r\n");
 
+  /* ---- FatFS init ---- */
+  if (MX_FATFS_Init() != APP_OK) {
+    printf("FATFS_Init FAILED\r\n");
+    Error_Handler();
+  }
+  printf("FATFS driver linked OK\r\n");
+
+  /* ---- SD / data logger ---- */
+  if (LOG_Init() == 0) {
+    printf("SD card + CSV logger ready\r\n");
+    BSP_LED_On(LED_GREEN);
+  } else {
+    printf("No SD card — logging disabled\r\n");
+  }
+
+  /* ---- Sensor init ---- */
+  int bme280_ok = (bme280_init(&hi2c1, BME280_ADDR) == HAL_OK);
+  int mpu6050_ok = (MPU6050_Init(&hi2c1) == HAL_OK);
+  int veml7700_ok = (VEML7700_Init(&hi2c1) == HAL_OK);
+  printf("Sensors: BME280=%d MPU6050=%d VEML7700=%d\r\n",
+         bme280_ok, mpu6050_ok, veml7700_ok);
+
+  /* ---- EPD init ---- */
+  DEV_Module_Init();
+  DEV_Delay_ms(1000);
+  printf("EPD ready\r\n");
+
+  /* ---- Tilt: calibrate reference at startup (board upright) ---- */
+  MPU6050_Data_t mpu_data;
+  float tilt_ref[3] = {0, 0, 0}, tilt_deg = 0.0f;
+  if (mpu6050_ok) {
+    MPU6050_ReadData(&hi2c1, &mpu_data);
+    tilt_ref[0] = (float)mpu_data.ax / 16384.0f;
+    tilt_ref[1] = (float)mpu_data.ay / 16384.0f;
+    tilt_ref[2] = (float)mpu_data.az / 16384.0f;
+  }
+
+  uint32_t last_sample = 0;
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
   while (1)
   {
     uint32_t now = HAL_GetTick();
-    if ((now - last_update) >= SAMPLE_INTERVAL)
+    if (now - last_sample >= SAMPLE_INTERVAL)
     {
-      last_update = now;
+      last_sample = now;
 
-      if (bme280_ready)
-      {
-        (void)bme280_read_compensated(&hi2c1, BME280_ADDR,
-                                      &bme280_data.temperature,
-                                      &bme280_data.pressure,
-                                      &bme280_data.humidity);
-      }
-      if (mpu6050_ready)
-      {
-        (void)MPU6050_ReadData(&hi2c1, &mpu6050_data);
-      }
-      if (veml7700_ready)
-      {
-        (void)VEML7700_ReadALS(&hi2c1, &veml7700_data);
+      /* ---- Read BME280 ---- */
+      float temp = 0, hum = 0;
+      uint32_t pres = 0;
+      if (bme280_ok) {
+        bme280_read_compensated(&hi2c1, BME280_ADDR, &temp, &pres, &hum);
       }
 
-      char title[32];
-      char line1[32];
-      char line2[32];
-      char line3[32];
-      char line4[32];
-
-      snprintf(title, sizeof(title), "Testing sensors....");
-
-      if (bme280_ready)
-      {
-        snprintf(line1, sizeof(line1), "T:%0.1fC H:%0.1f%%",
-                 bme280_data.temperature, bme280_data.humidity);
-        snprintf(line2, sizeof(line2), "P:%lu Pa", (unsigned long)bme280_data.pressure);
-      }
-      else
-      {
-        snprintf(line1, sizeof(line1), "BME280: not ready");
-        snprintf(line2, sizeof(line2), "------------------");
+      /* ---- Read MPU-6050 & compute tilt ---- */
+      if (mpu6050_ok) {
+        MPU6050_ReadData(&hi2c1, &mpu_data);
+        float ax = (float)mpu_data.ax / 16384.0f;
+        float ay = (float)mpu_data.ay / 16384.0f;
+        float az = (float)mpu_data.az / 16384.0f;
+        float dot = ax*tilt_ref[0] + ay*tilt_ref[1] + az*tilt_ref[2];
+        float na = sqrtf(ax*ax + ay*ay + az*az);
+        float nr = sqrtf(tilt_ref[0]*tilt_ref[0]
+                       + tilt_ref[1]*tilt_ref[1]
+                       + tilt_ref[2]*tilt_ref[2]);
+        float cos_a = dot / (na * nr);
+        if (cos_a > 1.0f) cos_a = 1.0f;
+        if (cos_a < -1.0f) cos_a = -1.0f;
+        tilt_deg = acosf(cos_a) * 57.29578f;
       }
 
-      if (mpu6050_ready)
-      {
-        float ax_g = (float)mpu6050_data.ax / 16384.0f;
-        float ay_g = (float)mpu6050_data.ay / 16384.0f;
-        float az_g = (float)mpu6050_data.az / 16384.0f;
-
-        float dot = ax_g*ref_ax + ay_g*ref_ay + az_g*ref_az;
-        float ma = sqrtf(ax_g*ax_g + ay_g*ay_g + az_g*az_g);
-        float mr = sqrtf(ref_ax*ref_ax + ref_ay*ref_ay + ref_az*ref_az);
-        if (ma < 0.001f) ma = 1.0f;
-        if (mr < 0.001f) mr = 1.0f;
-
-        float tilt = acosf(dot / (ma * mr)) * 180.0f / M_PI;
-
-        snprintf(line3, sizeof(line3), "Tilt: %0.1f deg", (double)tilt);
-      }
-      else
-      {
-        snprintf(line3, sizeof(line3), "MPU6050: not ready");
+      /* ---- Read VEML7700 ---- */
+      VEML7700_Data_t vdata = {0};
+      float lux = 0;
+      if (veml7700_ok) {
+        VEML7700_ReadALS(&hi2c1, &vdata);
+        lux = vdata.lux;
       }
 
-      if (veml7700_ready)
-      {
-        snprintf(line4, sizeof(line4), "LUX %0.1f", veml7700_data.lux);
-      }
-      else
-      {
-        snprintf(line4, sizeof(line4), "VEML7700: not ready");
-      }
+      /* ---- Display on EPD ---- */
+      char l1[32], l2[32], l3[32], l4[32], l5[32];
+      snprintf(l1, sizeof(l1), "Tree Sentinel");
+      snprintf(l2, sizeof(l2), "T=%.1fC  P=%luPa", (double)temp, (unsigned long)pres);
+      snprintf(l3, sizeof(l3), "H=%.0f%%  L=%.0flx", (double)hum, (double)lux);
+      snprintf(l4, sizeof(l4), "Tilt=%.1fdeg", (double)tilt_deg);
+      snprintf(l5, sizeof(l5), "SD:%s", LOG_IsReady() ? "OK" : "--");
+      Display_SensorData(l1, l2, l3, l4, l5);
 
-      Display_SensorData(title, line1, line2, line3, line4);
+      /* restore SPI pins to AF mode (EPD bit-bangs them to GPIO) */
+      DEV_SPI_Init();
+
+      /* ---- Log to SD ---- */
+      BME280_Data_t bme = { .temperature = temp,
+                            .pressure = pres,
+                            .humidity = hum };
+      LOG_Sample(&bme, tilt_deg, &vdata);
+
       BSP_LED_Toggle(LED_BLUE);
     }
 
-    HAL_Delay(50);
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END WHILE */
+  /* USER CODE END 3 */
 }
 
 /**
@@ -347,7 +380,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-    hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -359,7 +392,9 @@ static void MX_SPI1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI1_Init 2 */
-
+  /* SD card needs ≤ 400 kHz for init, 4 MHz for data */
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  HAL_SPI_Init(&hspi1);
   /* USER CODE END SPI1_Init 2 */
 
 }
@@ -382,10 +417,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SPI1_RST_Pin|SPI1_DC_Pin|SPI1_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|SPI1_RST_Pin|SPI1_DC_Pin|SPI1_EPD_CS_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : SPI1_RST_Pin SPI1_DC_Pin */
-  GPIO_InitStruct.Pin = SPI1_RST_Pin|SPI1_DC_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI1_SD_CS_GPIO_Port, SPI1_SD_CS_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pins : PA0 SPI1_RST_Pin SPI1_DC_Pin SPI1_EPD_CS_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|SPI1_RST_Pin|SPI1_DC_Pin|SPI1_EPD_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -397,12 +435,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SPI1_BUSY_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SPI1_CS_Pin */
-  GPIO_InitStruct.Pin = SPI1_CS_Pin;
+  /*Configure GPIO pin : SPI1_SD_CS_Pin */
+  GPIO_InitStruct.Pin = SPI1_SD_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI1_SD_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USB_DM_Pin USB_DP_Pin */
   GPIO_InitStruct.Pin = USB_DM_Pin|USB_DP_Pin;

@@ -1,9 +1,8 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
+  * @file   app_fatfs.h
+  * @brief  Header for fatfs applications
   ******************************************************************************
   * @attention
   *
@@ -19,18 +18,13 @@
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MAIN_H
-#define __MAIN_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __APP_FATFS_H
+#define __APP_FATFS_H
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32wbxx_hal.h"
-
-#include "stm32wbxx_nucleo.h"
-#include <stdio.h>
+#include "ff.h"
+#include "ff_gen_drv.h"
+#include "user_diskio.h" /* defines USER_Driver as external */
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -39,12 +33,6 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
-typedef struct {
-  float temperature;
-  uint32_t pressure;
-  float humidity;
-} BME280_Data_t;
 
 /* USER CODE END ET */
 
@@ -59,48 +47,21 @@ typedef struct {
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
-void Error_Handler(void);
-
+int32_t MX_FATFS_Init(void);
+int32_t MX_FATFS_Process(void);
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SYS_WKUP2_Pin GPIO_PIN_13
-#define SYS_WKUP2_GPIO_Port GPIOC
-#define RCC_OSC32_IN_Pin GPIO_PIN_14
-#define RCC_OSC32_IN_GPIO_Port GPIOC
-#define RCC_OSC32_OUT_Pin GPIO_PIN_15
-#define RCC_OSC32_OUT_GPIO_Port GPIOC
-#define SPI1_RST_Pin GPIO_PIN_1
-#define SPI1_RST_GPIO_Port GPIOA
-#define SPI1_DC_Pin GPIO_PIN_2
-#define SPI1_DC_GPIO_Port GPIOA
-#define SPI1_BUSY_Pin GPIO_PIN_3
-#define SPI1_BUSY_GPIO_Port GPIOA
-#define SPI1_SD_CS_Pin GPIO_PIN_4
-#define SPI1_SD_CS_GPIO_Port GPIOA
-#define SPI1_EPD_CS_Pin GPIO_PIN_9
-#define SPI1_EPD_CS_GPIO_Port GPIOA
-#define USB_DM_Pin GPIO_PIN_11
-#define USB_DM_GPIO_Port GPIOA
-#define USB_DP_Pin GPIO_PIN_12
-#define USB_DP_GPIO_Port GPIOA
-#define JTMS_Pin GPIO_PIN_13
-#define JTMS_GPIO_Port GPIOA
-#define JTCK_Pin GPIO_PIN_14
-#define JTCK_GPIO_Port GPIOA
-#define JTDO_Pin GPIO_PIN_3
-#define JTDO_GPIO_Port GPIOB
-
 /* USER CODE BEGIN Private defines */
-#define SD_SPI_HANDLE   hspi1
-#define SD_CS_GPIO_Port SPI1_SD_CS_GPIO_Port
-#define SD_CS_Pin       SPI1_SD_CS_Pin
+#define APP_OK                      0
+#define APP_ERROR                  -1
+#define APP_SD_UNPLUGGED           -2
 /* USER CODE END Private defines */
 
-#ifdef __cplusplus
-}
-#endif
+extern FATFS USERFatFs;    /* File system object for USER logical drive */
+extern FIL USERFile;       /* File  object for USER */
+extern char USERPath[4];   /* USER logical drive path */
 
-#endif /* __MAIN_H */
+#endif /*__APP_FATFS_H */

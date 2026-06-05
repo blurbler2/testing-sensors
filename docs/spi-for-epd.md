@@ -1,15 +1,18 @@
 # SPI for E-Paper Display
 
 ## Pins (working configuration)
-
+```
 | Display | Nucleo | SPI Function |
 |---------|--------|--------------|
 | DIN     | PA7 (D11)   | MOSI         |
 | CLK     | PA5 (D13)   | SCK          |
-| CS      | PA4 (D10)   | Chip Select  |
+| CS      | PA4 (D10)   | Chip Select  | !!! This is swapped with PA9 (D9) for when sd card is added, which will be on PA4 (d10)
 | DC      | PA2 (D1)   | Data/Cmd     |
 | RST     | PA1 (A2)   | Reset        |
 | BUSY    | PA3 (D0)   | Busy (input) |
+VCC -> 3V3
+GND -> GND 
+```
 
 ## Key Settings
 
