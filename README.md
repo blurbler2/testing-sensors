@@ -3,7 +3,7 @@
 - Displays readings on a Waveshare 2.9" V2 e-paper display (SPI1), updating every 2 seconds
 - Writes Measurements to SD Card (SPI1)
 
-<img src="/DOCS/working-demo.jpeg" width="50%" alt="Working demo">
+<img src="docs/working-demo.jpeg" width="50%" alt="Working demo">
 
 
 ## Quick Start
