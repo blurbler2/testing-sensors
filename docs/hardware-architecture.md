@@ -8,13 +8,15 @@
 
 | Signal     | Pin  | Function    |
 |------------|------|-------------|
-| EPD CS     | PA4  | GPIO Output |
-| EPD DC     | PA2  | GPIO Output |
-| EPD RST    | PA1  | GPIO Output |
-| EPD BUSY   | PA3  | GPIO Input  |
-| EPD MOSI   | PA7  | SPI1_MOSI   |
-| EPD SCK    | PA5  | SPI1_SCK    |
-| I2C1 SCL   | PB8  | I2C1_SCL    |
-| I2C1 SDA   | PB9  | I2C1_SDA    |
+| EPD CS     | PA4 (D10) | GPIO Output |
+| EPD DC     | PA2 (D1)  | GPIO Output |
+| EPD RST    | PA1 (A2)  | GPIO Output |
+| EPD BUSY   | PA3 (D0)  | GPIO Input  |
+| EPD DIN    | PA7 (D11) | SPI1_MOSI   |
+| EPD CLK    | PA5 (D13) | SPI1_SCK    |
+| I2C1 SCL   | PB8 (D15)  | I2C1_SCL    |
+| I2C1 SDA   | PB9 (D14)  | I2C1_SDA    |
+
+
 
 All sensors at 3.3V logic. 4.7kΩ pull-ups on SDA/SCL. MPU-6050 ADO tied to GND (addr 0x68). BME280 CSB tied to VCC (I2C mode), SDO to GND (addr 0x76).

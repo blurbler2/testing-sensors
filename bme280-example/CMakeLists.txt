@@ -56,6 +56,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/../SENSORS/bme280.c
     ${CMAKE_SOURCE_DIR}/../SENSORS/mpu6050.c
     ${CMAKE_SOURCE_DIR}/../SENSORS/veml7700.c
+    ${CMAKE_SOURCE_DIR}/../SENSORS/data_logger.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/ff.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/diskio.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/ff_gen_drv.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/Target/user_diskio_spi.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/Target/user_diskio.c
+    ${CMAKE_SOURCE_DIR}/../FATFS/App/app_fatfs.c
     ${EPD_LIB_DIR}/Config/DEV_Config.c
     ${EPD_LIB_DIR}/EPD_2in9_V2.c
     ${EPD_LIB_DIR}/GUI/GUI_Paint.c
@@ -74,6 +81,9 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     Core/Inc
     ${CMAKE_SOURCE_DIR}/../SENSORS
+    ${CMAKE_SOURCE_DIR}/../FATFS
+    ${CMAKE_SOURCE_DIR}/../FATFS/App
+    ${CMAKE_SOURCE_DIR}/../FATFS/Target
     ${EPD_LIB_DIR}
     ${EPD_LIB_DIR}/Config
     ${EPD_LIB_DIR}/GUI

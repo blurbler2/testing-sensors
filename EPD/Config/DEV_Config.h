@@ -65,10 +65,8 @@
 **/
 #define EPD_RST_PIN     SPI1_RST_GPIO_Port, SPI1_RST_Pin
 #define EPD_DC_PIN      SPI1_DC_GPIO_Port, SPI1_DC_Pin
-#define EPD_RST_PIN     SPI1_RST_GPIO_Port, SPI1_RST_Pin
-#define EPD_DC_PIN      SPI1_DC_GPIO_Port, SPI1_DC_Pin
 #define EPD_PWR_PIN     SPI1_RST_GPIO_Port, SPI1_RST_Pin
-#define EPD_CS_PIN      SPI1_CS_GPIO_Port, SPI1_CS_Pin
+#define EPD_CS_PIN      SPI1_EPD_CS_GPIO_Port, SPI1_EPD_CS_Pin
 #define EPD_BUSY_PIN    SPI1_BUSY_GPIO_Port, SPI1_BUSY_Pin
 // Define MOSI/SCLK pins (not auto-generated in main.h)
 #define DIN_GPIO_Port GPIOA

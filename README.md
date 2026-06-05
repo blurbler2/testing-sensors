@@ -15,16 +15,31 @@ make -j$(nproc)
 
 ## Pin Connections
 
-| Display   | Nucleo |
-|-----------|--------|
-| VCC       | 3V3    |
-| GND       | GND    |
-| DIN/MOSI  | PA7    |
-| CLK/SCK   | PA5    |
-| CS        | PA4    |
-| DC        | PA2    |
-| RST       | PA1    |
-| BUSY      | PA3    |
+E-Paper Display (EPD)
+```
+| Display   | Nucleo     |
+|-----------|------------|
+| VCC       | 3V3        |
+| GND       | GND        |
+| DIN/MOSI  | PA7 (D11)  |
+| CLK/SCK   | PA5 (D13)  |
+| CS        | PA9 (D9)   |
+| DC        | PA2 (D1)   |
+| RST       | PA1 (A2)   |
+| BUSY      | PA3 (D0)   |
+````
+
+SD Card
+```
+| SD Card | NUCLEO-WB55RG |
+|---------|---------------|
+| CLK     | PA5 (D13)     |
+| MOSI    | PA7 (D11)     |
+| MISO    | PA6 (D12)     |
+| CS      | PA4 (D10)     | configured HIGH
+| VCC     | 3V3           |
+| GND     | GND           |
+```
 
 Sensors share I2C1 (PB8=SCL, PB9=SDA). All use 3.3V logic, 4.7kΩ pull-ups on SDA/SCL.
 
@@ -37,6 +52,14 @@ P:101325 Pa
 ACC 12 -4 256
 LUX 320.0
 ```
+
+## Known Bugs
+
+### Wrong file date on SD card
+CSV files created on the SD card show `1970-01-01` when viewed on a PC. This happens because `get_fattime()` is not implemented — the STM32WB55 has no battery-backed RTC, so FatFS writes a zero timestamp (FAT epoch = 1980, but some OSes interpret it as Unix epoch 1970). **Not a data integrity issue**, only cosmetic. Fix would require an external RTC module or setting time via BLE.
+
+### CSV timestamps are relative to boot
+The first column (`timestamp_ms`) is `HAL_GetTick()` in ms since power-on, **not** Unix epoch wall-clock time.
 
 ## Key Files
 
