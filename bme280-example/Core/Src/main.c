@@ -110,9 +110,7 @@ int main(void)
   HAL_GPIO_WritePin(SPI1_EPD_CS_GPIO_Port, SPI1_EPD_CS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SPI1_SD_CS_GPIO_Port, SPI1_SD_CS_Pin, GPIO_PIN_SET);
 
-  BSP_LED_Init(LED_BLUE);
-  BSP_LED_Init(LED_GREEN);
-  BSP_LED_Init(LED_RED);
+  BSP_LED_Init(LED_RED);   /* error indicator only */
 
   BspCOMInit.BaudRate   = 115200;
   BspCOMInit.WordLength = COM_WORDLENGTH_8B;
@@ -136,7 +134,6 @@ int main(void)
   /* ---- SD / data logger ---- */
   if (LOG_Init() == 0) {
     printf("SD card + CSV logger ready\r\n");
-    BSP_LED_On(LED_GREEN);
   } else {
     printf("No SD card — logging disabled\r\n");
   }
@@ -225,8 +222,6 @@ int main(void)
                             .pressure = pres,
                             .humidity = hum };
       LOG_Sample(&bme, tilt_deg, &vdata);
-
-      BSP_LED_Toggle(LED_BLUE);
     }
 
     /* USER CODE END WHILE */

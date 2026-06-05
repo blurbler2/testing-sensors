@@ -1,7 +1,8 @@
 # Tree Sentinel — Next Steps
 
 **Current sensors tested (I2C1):** BME280 (T/P/H), MPU-6050 (accel/tilt), VEML7700 (lux)  
-**Display:** Waveshare 2.9" V2 e-paper (SPI1)  
+**Display:** Waveshare 2.9" V2 e-paper (SPI1, bit-banged)  
+**SD card:** Adafruit MicroSD ADA4682 (SPI1, hardware)  
 **MCU:** STM32WB55RG (NUCLEO-WB55RG)
 
 ## System Schematic
@@ -26,12 +27,13 @@
   │  │  ┌────────────────────┐  ┌──────────────────────┐    │
   │  │  │ Waveshare 2.9" V2  │  │ Adafruit µSD         │    │
   │  │  │ e-paper (SPI)      │  │ SPI                  │    │
+  │  │  │  (bit-banged GPIO) │  │  (hardware SPI)      │    │
   │  │  │                    │  │                      │    │
-  │  │  │ CS=PA4   DC=PA2    │  │ CS=PA0 (TBD)         │    │
+  │  │  │ CS=PA9   DC=PA2    │  │ CS=PA4               │    │
   │  │  │ RST=PA1  BUSY=PA3  │  │                      │    │
   │  │  └────────────────────┘  └──────────────────────┘    │
   │  │                                                      │
-  │  ├── I2C1 or separate ── SHT40 (0x44) ──────────────────┤
+  │  ├── I2C1 ── SHT40 (0x44) ──────────────────────────────┤
   │  │                                                      │
   │  └── GPIO (INT) ── Button (BLE wake) ───────────────────┘
   │                                                         │
@@ -40,18 +42,18 @@
 
 ## Next Steps
 
-### 1. SD Card Module (SPI, shared with e-paper)
+### 1. SD Card — Flash Test ✓ (driver integrated, needs testing)
 
-- SD module CS on a free GPIO (e.g. PB0, PB1, PC0, PC1, PC2, PC3, PB10, PB11, PB12–PB15, etc.)
-- Share SPI1 with the e-paper — both are SPI slaves with independent CS
-- Pinout: SD\_CS / MOSI / MISO / SCK / VCC / GND
-  - MOSI=PA7, SCK=PA5 already wired to e-paper
-  - MISO=PA6 (SPI1\_MISO) — not currently used by e-paper (unidirectional), so it's free
-  - Add SD\_CS (new GPIO)
-- FatFS library for file I/O
-- CSV format: `timestamp, sensor_id, value, unit, status`
+- FatFS + reference `user_diskio_spi.c` integrated (proven on same HW)
+- CS=PA4 (`SPI1_SD_CS`), shared SPI1 with EPD
+- **Known bug:** EPD bit-bangs PA5/PA7 to GPIO mode; `DEV_SPI_Init()` restores AF mode before each SD write
+- **Known bug:** FatFS `f_printf` doesn't support `%f` — floats decomposed to `int.int` in `data_logger.c`
+- **Known bug:** SD card file dates show 1970 — no RTC (`get_fattime` unimplemented)
+- CSV format: `timestamp_ms,temp_C,pressure_Pa,humidity_pct,tilt_deg,lux`
+- **To test:** `f_mount` + CSV log create → verify on PC
+- **If SD fails:** bypass TXB0104 level shifter on ADA4682, wire 3.3V direct
 
-### 2. Power Module
+### 2. Power Module ✓ (decided)
 
 **Chosen approach:** 2× AA Eneloop Pro (NiMH), direct to Nucleo VDD, bypassing the on-board 5V regulator.
 
@@ -68,33 +70,36 @@
 
 ### 3. Additional Sensors (Add-On PCB)
 
-- **SHT31** (I2C, addr 0x44) — separate air T/H sensor (redundant to BME280 or use both)
+- **SHT40** (I2C, addr 0x44) — separate air T/H sensor (complements BME280)
 - Button (GPIO interrupt wake from sleep, trigger BLE advertising)
 
 ### 4. KiCad Schematic
 
 1. Start with STM32WB55RG minimal schematic (crystal, decoupling, SWD)
-2. Add I2C1 bus with BME280, MPU-6050, VEML7700, SHT31
+2. Add I2C1 bus with BME280, MPU-6050, VEML7700, SHT40
 3. Add SPI1 bus with e-paper connector + SD card slot
 4. Add button with debounce → GPIO
-6. Add power section: battery connector, charger, LDO, protection
-7. Add connector to Nucleo (or design as shield)
+5. Add power section: battery connector
+6. Add connector to Nucleo (or design as shield)
 
-### 5. Firmware Architecture
+### 5. Firmware Roadmap
 
 ```
-main loop (2s interval):
-  wake → read sensors → store to SD → update display → sleep
+Current (implemented):
+  main loop (2s interval):
+    read sensors → update e-paper → log CSV to SD → repeat
 
-BLE:
-  advertising on button press
-  config: interval, time, thresholds
-  data export via BLE
+Next:
+  BLE:
+    advertising on button press
+    config: interval, time, thresholds
+    data export via BLE
 
-Low Power:
-  RTC wake timer (STOP mode)
-  e-paper: init → update → sleep
-  sensors: power off when idle
+Later:
+  Low Power:
+    RTC wake timer (STOP mode)
+    e-paper: init → update → sleep
+    sensors: power off when idle
 ```
 
 ### 6. Enclosure
@@ -106,17 +111,20 @@ Low Power:
 
 ## Current Status
 
-| Component          | Status |
-|--------------------|--------|
-| BME280 (T/P/H)     | Working |
-| MPU-6050 (tilt)    | Working |
-| VEML7700 (lux)     | Working |
-| E-paper display    | Working |
-| SD card module     | **Next** |
-| Power module       | **Next** |
-| SHT31              | Optional |
-| Button             | TODO |
-| BLE                | TODO |
-| KiCad schematic    | TODO |
-| PCB design         | TODO |
-| Enclosure          | TODO |
+| Component             | Status              |
+|-----------------------|---------------------|
+| BME280 (T/P/H)        | Working             |
+| MPU-6050 (tilt)       | Working             |
+| VEML7700 (lux)        | Working             |
+| E-paper display       | Working             |
+| SD card module        | Integrated, needs flash test |
+| Power module          | Decided (2× AA)     |
+| SHT40                 | Optional            |
+| KiCad schematic       | TODO                |
+| BLE                   | TODO                |
+| Button for wake       | TODO                |
+| PCB design            | TODO                |
+| Enclosure             | TODO                |
+
+## Open questions
+What happens when SD Card is removed while nucleo is working?
