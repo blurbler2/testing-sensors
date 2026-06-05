@@ -1,8 +1,10 @@
 # Testing Sensors on STM32WB55RG + 2.9" E-Paper Display
+- Reads BME280 (T/P/H), MPU-6050 (accel), and VEML7700 (lux) sensors over I2C1
+- Displays readings on a Waveshare 2.9" V2 e-paper display (SPI1), updating every 2 seconds
+- Writes Measurements to SD Card (SPI1)
 
-<img src="DOCS/working-demo.jpeg" width="50%" alt="Working demo">
+<img src="/DOCS/working-demo.jpeg" width="50%" alt="Working demo">
 
-Reads BME280 (T/P/H), MPU-6050 (accel), and VEML7700 (lux) sensors over I2C1 and displays readings on a Waveshare 2.9" V2 e-paper display (SPI1), updating every 2 seconds.
 
 ## Quick Start
 
