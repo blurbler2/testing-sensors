@@ -4,12 +4,12 @@
 
 | Display | Nucleo | SPI Function |
 |---------|--------|--------------|
-| DIN     | PA7    | MOSI         |
-| CLK     | PA5    | SCK          |
-| CS      | PA4    | Chip Select  |
-| DC      | PA2    | Data/Cmd     |
-| RST     | PA1    | Reset        |
-| BUSY    | PA3    | Busy (input) |
+| DIN     | PA7 (D11)   | MOSI         |
+| CLK     | PA5 (D13)   | SCK          |
+| CS      | PA4 (D10)   | Chip Select  |
+| DC      | PA2 (D1)   | Data/Cmd     |
+| RST     | PA1 (A2)   | Reset        |
+| BUSY    | PA3 (D0)   | Busy (input) |
 
 ## Key Settings
 
