@@ -53,6 +53,17 @@
 - **To test:** `f_mount` + CSV log create → verify on PC
 - **If SD fails:** bypass TXB0104 level shifter on ADA4682, wire 3.3V direct
 
+### SD Card Hot-Plug Recovery (branch `feature/sd-hotplug`)
+
+**What happens without recovery:** If the SD card is removed while logging, `HAL_SPI_TransmitReceive` timeouts silently, FatFS returns `FR_DISK_ERR`, and `f_printf`/`f_sync` fail. The logger sets `log_ready = 0` permanently — card reinsertion does nothing.
+
+**Implemented recovery (on `feature/sd-hotplug`):**
+- Every `LOG_Sample()` call checks `disk_status(0)` — if `STA_NOINIT`, marks card gone, unmounts stale volume
+- On subsequent calls, attempts `LOG_Reinit()`: unmount → `memset(&fs, 0)` → remount (triggers `disk_initialize` SPI re-init) → reopen `data.csv` in append mode
+- `f_printf()` and `f_sync()` failures also trigger detach + retry
+- EPD shows "SD:OK" / "SD:--" based on `LOG_IsReady()`
+- **Not merged** to `main` — still on `feature/sd-hotplug`, needs testing
+
 ### 2. Power Module ✓ (decided)
 
 **Chosen approach:** 2× AA Eneloop Pro (NiMH), direct to Nucleo VDD, bypassing the on-board 5V regulator.
