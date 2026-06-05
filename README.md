@@ -40,7 +40,16 @@ SD Card
 | GND     | GND           |
 ```
 
-Sensors share I2C1 (PB8=SCL, PB9=SDA). All use 3.3V logic, 4.7kΩ pull-ups on SDA/SCL.
+I2C Sensors (shared bus on I2C1)
+```
+| Sensor     | I2C Addr | VCC  | SCL      | SDA      | GND |
+|------------|----------|------|----------|----------|-----|
+| BME280     | 0x76     | 3V3  | PB8 (D15)| PB9 (D14)| GND |
+| MPU-6050   | 0x68     | 3V3  | PB8 (D15)| PB9 (D14)| GND |
+| VEML7700   | 0x10     | 3V3  | PB8 (D15)| PB9 (D14)| GND |
+| SHT40      | 0x44     | 3V3  | PB8 (D15)| PB9 (D14)| GND |
+```
+All sensors are 3.3V logic, 4.7kΩ pull-ups on SDA/SCL (on-board or external). ADDR pins: BME280 SDO=GND selects 0x76; MPU-6050 AD0=GND selects 0x68.
 
 ## Display Layout
 
