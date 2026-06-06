@@ -33,7 +33,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_INTERVAL  2000
+/* runtime-configurable intervals (ms); will be settable via BLE */
+static uint32_t meas_interval  = 10000;  /* sensor read + SD log */
+static uint32_t disp_interval  = 10000;  /* e-paper refresh (temp: match meas) */
 #define BME280_ADDR      (0x76 << 1)
 /* USER CODE END PD */
 
@@ -160,7 +162,10 @@ int main(void)
     tilt_ref[2] = (float)mpu_data.az / 16384.0f;
   }
 
-  uint32_t last_sample = 0;
+  uint32_t last_meas = 0, last_disp = 0;
+  float temp = 0, hum = 0, lux = 0;
+  uint32_t pres = 0;
+  VEML7700_Data_t vdata = {0};
 
   /* USER CODE END 2 */
 
@@ -169,18 +174,18 @@ int main(void)
   while (1)
   {
     uint32_t now = HAL_GetTick();
-    if (now - last_sample >= SAMPLE_INTERVAL)
-    {
-      last_sample = now;
 
-      /* ---- Read BME280 ---- */
-      float temp = 0, hum = 0;
-      uint32_t pres = 0;
+    /* ---- read sensors + log SD (every meas_interval) ---- */
+    if (now - last_meas >= meas_interval)
+    {
+      last_meas = now;
+
+      /* BME280 */
       if (bme280_ok) {
         bme280_read_compensated(&hi2c1, BME280_ADDR, &temp, &pres, &hum);
       }
 
-      /* ---- Read MPU-6050 & compute tilt ---- */
+      /* MPU-6050 tilt */
       if (mpu6050_ok) {
         MPU6050_ReadData(&hi2c1, &mpu_data);
         float ax = (float)mpu_data.ax / 16384.0f;
@@ -197,31 +202,34 @@ int main(void)
         tilt_deg = acosf(cos_a) * 57.29578f;
       }
 
-      /* ---- Read VEML7700 ---- */
-      VEML7700_Data_t vdata = {0};
-      float lux = 0;
+      /* VEML7700 */
       if (veml7700_ok) {
         VEML7700_ReadALS(&hi2c1, &vdata);
         lux = vdata.lux;
       }
 
-      /* ---- Display on EPD ---- */
+      /* restore SPI pins to AF mode (EPD bit-bangs them) */
+      DEV_SPI_Init();
+
+      /* Log to SD */
+      BME280_Data_t bme = { .temperature = temp,
+                            .pressure = pres,
+                            .humidity = hum };
+      LOG_Sample(&bme, tilt_deg, &vdata);
+    }
+
+    /* ---- refresh e-paper (every disp_interval) ---- */
+    if (now - last_disp >= disp_interval)
+    {
+      last_disp = now;
+
       char l1[32], l2[32], l3[32], l4[32], l5[32];
       snprintf(l1, sizeof(l1), "Tree Sentinel");
       snprintf(l2, sizeof(l2), "T=%.1fC  P=%luPa", (double)temp, (unsigned long)pres);
       snprintf(l3, sizeof(l3), "H=%.0f%%  L=%.0flx", (double)hum, (double)lux);
       snprintf(l4, sizeof(l4), "Tilt=%.1fdeg", (double)tilt_deg);
-      snprintf(l5, sizeof(l5), "SD:%s", LOG_IsReady() ? "OK" : "--");
+      snprintf(l5, sizeof(l5), "SD:%s", LOG_IsReady() ? "OK" : "NO");
       Display_SensorData(l1, l2, l3, l4, l5);
-
-      /* restore SPI pins to AF mode (EPD bit-bangs them to GPIO) */
-      DEV_SPI_Init();
-
-      /* ---- Log to SD ---- */
-      BME280_Data_t bme = { .temperature = temp,
-                            .pressure = pres,
-                            .humidity = hum };
-      LOG_Sample(&bme, tilt_deg, &vdata);
     }
 
     /* USER CODE END WHILE */

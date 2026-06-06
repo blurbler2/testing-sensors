@@ -61,13 +61,25 @@ ACC 12 -4 256
 LUX 320.0
 ```
 
+## Configuring Intervals
+
+Interval timing is in `Core/Src/main.c`:
+
+| Variable              | Location                   | Default | Purpose                |
+|-----------------------|----------------------------|---------|------------------------|
+| `#define SAMPLE_INTERVAL` | near top of file          | 2000 ms | Sensor + display + log (currently one interval for everything) |
+| `meas_interval`       | planned `static uint32_t`  | 10000   | Future: sensor read + SD log only |
+| `disp_interval`       | planned `static uint32_t`  | 60000   | Future: e-paper refresh only |
+
+Currently `SAMPLE_INTERVAL` controls all three operations together. Planned: split into `meas_interval` and `disp_interval` with independent timers so the display updates less often than the sensor log.
+
 ## Known Bugs
 
 ### Wrong file date on SD card
 CSV files created on the SD card show `1970-01-01` when viewed on a PC. This happens because `get_fattime()` is not implemented — the STM32WB55 has no battery-backed RTC, so FatFS writes a zero timestamp (FAT epoch = 1980, but some OSes interpret it as Unix epoch 1970). **Not a data integrity issue**, only cosmetic. Fix would require an external RTC module or setting time via BLE.
 
-### CSV timestamps are relative to boot
-The first column (`timestamp_ms`) is `HAL_GetTick()` in ms since power-on, **not** Unix epoch wall-clock time.
+### CSV timestamps use compile time as base
+The `datetime` column is computed as `compile_time + HAL_GetTick()/1000` in `SENSORS/data_logger.c`. It will drift slightly over long uptimes (MCU clock tolerance). Once BLE sets a real epoch via `LOG_SetEpoch()`, this becomes fully accurate.
 
 ## Key Files
 
